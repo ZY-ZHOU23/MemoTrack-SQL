@@ -15,6 +15,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, username: string, password: string) => Promise<void>;
   logout: () => void;
+  refreshAuth: () => Promise<boolean>;
 }
 
 export function useAuth(): AuthContextType {
@@ -22,24 +23,36 @@ export function useAuth(): AuthContextType {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
+  const checkAuthStatus = async () => {
     const token = localStorage.getItem('token');
+    console.log('Checking auth status, token exists:', !!token);
     if (token) {
-      // Verify token and get user info
-      authService.getCurrentUser()
-        .then(response => {
-          setUser(response.data);
-        })
-        .catch(() => {
-          localStorage.removeItem('token');
-          setUser(null);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+      try {
+        // Verify token and get user info
+        const response = await authService.getCurrentUser();
+        console.log('Auth check successful, user data received');
+        setUser(response.data);
+        return true;
+      } catch (error) {
+        console.error('Auth check failed, clearing token', error);
+        localStorage.removeItem('token');
+        setUser(null);
+        return false;
+      }
     } else {
-      setLoading(false);
+      console.log('No token found during auth check');
+      setUser(null);
+      return false;
     }
+  };
+
+  useEffect(() => {
+    const initAuth = async () => {
+      await checkAuthStatus();
+      setLoading(false);
+    };
+    
+    initAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -74,5 +87,5 @@ export function useAuth(): AuthContextType {
     navigate('/login');
   };
 
-  return { user, loading, login, register, logout };
+  return { user, loading, login, register, logout, refreshAuth: checkAuthStatus };
 } 

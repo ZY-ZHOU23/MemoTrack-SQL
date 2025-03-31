@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Container,
   Paper,
@@ -19,6 +20,12 @@ import {
   TableRow,
   Chip,
   MenuItem,
+  Grid,
+  Select,
+  FormControl,
+  InputLabel,
+  OutlinedInput,
+  SelectChangeEvent,
 } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 import { entries as entriesService, categories as categoriesService, tags as tagsService } from '../services/api';
@@ -48,6 +55,8 @@ interface Tag {
 }
 
 export default function Entries() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -61,13 +70,37 @@ export default function Entries() {
     status: 'published',
     tags: [] as string[],
   });
-  const { user } = useAuth();
+  const { user, refreshAuth } = useAuth();
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [dateRange, setDateRange] = useState<{
+    start: Date | null;
+    end: Date | null;
+  }>({
+    start: null,
+    end: null,
+  });
 
+  // First useEffect to fetch initial data
   useEffect(() => {
     fetchEntries();
     fetchCategories();
     fetchTags();
   }, []);
+
+  // Second useEffect to handle edit parameter after entries are loaded
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const editId = params.get('edit');
+    if (editId && entries.length > 0) {
+      const entry = entries.find(e => e.id === parseInt(editId));
+      if (entry) {
+        handleOpen(entry);
+        // Remove the query parameter after opening the dialog
+        navigate('/entries', { replace: true });
+      }
+    }
+  }, [location.search, entries]);
 
   const fetchEntries = async () => {
     try {
@@ -116,8 +149,8 @@ export default function Entries() {
         title: entry.title,
         content: entry.content,
         category_id: category_id,
-        priority: 'medium',
-        status: 'published',
+        priority: entry.priority,
+        status: entry.status,
         tags: entry.tags,
       });
     } else {
@@ -149,6 +182,9 @@ export default function Entries() {
       };
       
       console.log('Sending data to backend:', formattedData);
+      // Debug token
+      const token = localStorage.getItem('token');
+      console.log('Token exists:', !!token, 'Token (first 20 chars):', token ? token.substring(0, 20) : 'none');
       
       if (editingEntry) {
         await entriesService.update(editingEntry.id, formattedData);
@@ -173,6 +209,59 @@ export default function Entries() {
     }
   };
 
+  const handleCategoryChange = (event: SelectChangeEvent) => {
+    setSelectedCategory(event.target.value as string);
+  };
+
+  const handleTagsChange = (event: SelectChangeEvent<string[]>) => {
+    const value = event.target.value;
+    setSelectedTags(typeof value === 'string' ? value.split(',') : value);
+  };
+
+  const handleStartDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const date = event.target.value ? new Date(event.target.value) : null;
+    setDateRange(prev => ({ ...prev, start: date }));
+  };
+
+  const handleEndDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const date = event.target.value ? new Date(event.target.value) : null;
+    setDateRange(prev => ({ ...prev, end: date }));
+  };
+
+  const filteredEntries = entries.filter((entry) => {
+    // Filter by category
+    if (selectedCategory !== 'all' && entry.category !== selectedCategory) {
+      return false;
+    }
+
+    // Filter by tags
+    if (selectedTags.length > 0) {
+      const hasAllSelectedTags = selectedTags.every(tag => 
+        entry.tags.includes(tag)
+      );
+      if (!hasAllSelectedTags) {
+        return false;
+      }
+    }
+
+    // Filter by date range
+    if (dateRange.start || dateRange.end) {
+      const entryDate = new Date(entry.created_at);
+      if (dateRange.start && entryDate < dateRange.start) {
+        return false;
+      }
+      if (dateRange.end) {
+        const endOfDay = new Date(dateRange.end);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (entryDate > endOfDay) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  });
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
@@ -189,11 +278,79 @@ export default function Entries() {
         </Button>
       </Box>
 
+      {/* Filter Controls */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Grid container spacing={3} alignItems="center">
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth>
+              <InputLabel>Category</InputLabel>
+              <Select
+                value={selectedCategory}
+                onChange={handleCategoryChange}
+                label="Category"
+              >
+                <MenuItem value="all">All Categories</MenuItem>
+                {categories.map((category) => (
+                  <MenuItem key={category.id} value={category.name}>
+                    {category.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth>
+              <InputLabel>Tags</InputLabel>
+              <Select
+                multiple
+                value={selectedTags}
+                onChange={handleTagsChange}
+                input={<OutlinedInput label="Tags" />}
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.map((value) => (
+                      <Chip key={value} label={value} size="small" />
+                    ))}
+                  </Box>
+                )}
+              >
+                {Array.from(new Set(entries.flatMap(entry => entry.tags))).map((tag) => (
+                  <MenuItem key={tag} value={tag}>
+                    {tag}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField
+              type="date"
+              label="Start Date"
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              value={dateRange.start ? dateRange.start.toISOString().split('T')[0] : ''}
+              onChange={handleStartDateChange}
+            />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField
+              type="date"
+              label="End Date"
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              value={dateRange.end ? dateRange.end.toISOString().split('T')[0] : ''}
+              onChange={handleEndDateChange}
+            />
+          </Grid>
+        </Grid>
+      </Paper>
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
               <TableCell>Title</TableCell>
+              <TableCell>Content</TableCell>
               <TableCell>Category</TableCell>
               <TableCell>Tags</TableCell>
               <TableCell>Created At</TableCell>
@@ -201,10 +358,23 @@ export default function Entries() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {entries && entries.length > 0 ? (
-              entries.map((entry) => (
+            {filteredEntries.length > 0 ? (
+              filteredEntries.map((entry) => (
                 <TableRow key={entry.id}>
                   <TableCell>{entry.title}</TableCell>
+                  <TableCell sx={{ 
+                    maxWidth: '300px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    '&:hover': {
+                      whiteSpace: 'normal',
+                      overflow: 'visible',
+                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                    }
+                  }}>
+                    {entry.content}
+                  </TableCell>
                   <TableCell>
                     {entry.category || getCategoryName(entry.category_id) || ''}
                   </TableCell>
@@ -241,7 +411,7 @@ export default function Entries() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5}>No entries found</TableCell>
+                <TableCell colSpan={6}>No entries found</TableCell>
               </TableRow>
             )}
           </TableBody>

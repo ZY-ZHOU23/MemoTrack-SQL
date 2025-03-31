@@ -10,6 +10,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Alert,
 } from '@mui/material';
 import {
   Chart as ChartJS,
@@ -24,7 +25,7 @@ import {
   ArcElement,
 } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
-import axios from 'axios';
+import { analytics } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 
 ChartJS.register(
@@ -64,6 +65,7 @@ interface AnalyticsData {
 export default function Analytics() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState('7d');
   const { user } = useAuth();
 
@@ -73,12 +75,28 @@ export default function Analytics() {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await axios.get(`/api/v1/analytics?time_range=${timeRange}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
+      setLoading(true);
+      console.log(`Fetching analytics with time range: ${timeRange}`);
+      const response = await analytics.getAnalytics(timeRange);
+      console.log('Analytics data received:', response.data);
       setData(response.data);
-    } catch (error) {
+      setError(null);
+    } catch (error: any) {
       console.error('Error fetching analytics:', error);
+      setError(error.response?.data?.detail || 'Failed to load analytics data');
+      // Provide empty data as fallback
+      setData({
+        totalEntries: 0,
+        totalCategories: 0,
+        totalTags: 0,
+        averageEntriesPerDay: 0,
+        mostActiveDay: 'N/A',
+        mostUsedCategory: 'N/A',
+        mostUsedTag: 'N/A',
+        entriesByCategory: [],
+        entriesByDate: [],
+        entriesByTag: []
+      });
     } finally {
       setLoading(false);
     }
@@ -186,7 +204,7 @@ export default function Analytics() {
             }}
           >
             <Typography component="h2" variant="h6" color="primary" gutterBottom>
-              Avg. Entries/Day
+              Entry Frequency
             </Typography>
             <Typography component="p" variant="h4">
               {data?.averageEntriesPerDay.toFixed(1) || 0}

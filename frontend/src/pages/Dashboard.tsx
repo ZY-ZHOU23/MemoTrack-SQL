@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Grid,
@@ -6,6 +7,12 @@ import {
   Typography,
   Box,
   CircularProgress,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  Tooltip,
 } from '@mui/material';
 import {
   Chart as ChartJS,
@@ -14,12 +21,12 @@ import {
   PointElement,
   LineElement,
   Title,
-  Tooltip,
+  Tooltip as ChartTooltip,
   Legend,
   ArcElement,
 } from 'chart.js';
 import { Line, Doughnut } from 'react-chartjs-2';
-import axios from 'axios';
+import { analytics } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 
 ChartJS.register(
@@ -28,7 +35,7 @@ ChartJS.register(
   PointElement,
   LineElement,
   Title,
-  Tooltip,
+  ChartTooltip,
   Legend,
   ArcElement
 );
@@ -40,6 +47,7 @@ interface DashboardStats {
   recentEntries: Array<{
     id: number;
     title: string;
+    content: string;
     created_at: string;
   }>;
   entriesByCategory: Array<{
@@ -55,23 +63,30 @@ interface DashboardStats {
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchDashboardStats = async () => {
       try {
         console.log('Fetching dashboard stats...');
-        const token = localStorage.getItem('token');
-        console.log('Auth token exists:', !!token);
-        
-        const response = await axios.get('/api/v1/analytics/dashboard', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await analytics.getDashboard();
         
         console.log('Dashboard API response:', response.data);
         setStats(response.data);
-      } catch (error) {
+        setError(null);
+      } catch (error: any) {
         console.error('Error fetching dashboard stats:', error);
+        setError(error.response?.data?.detail || 'Failed to load dashboard data');
+        setStats({
+          totalEntries: 0,
+          totalCategories: 0,
+          totalTags: 0,
+          recentEntries: [],
+          entriesByCategory: [],
+          entriesByDate: []
+        });
       } finally {
         setLoading(false);
       }
@@ -79,6 +94,10 @@ export default function Dashboard() {
 
     fetchDashboardStats();
   }, []);
+
+  const handleEntryDoubleClick = (entryId: number) => {
+    navigate(`/entries?edit=${entryId}`);
+  };
 
   if (loading) {
     return (
@@ -206,22 +225,48 @@ export default function Dashboard() {
               Recent Entries
             </Typography>
             <Box sx={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%' }}>
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Created At</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table size="medium">
+                <TableHead>
+                  <TableRow>
+                    <TableCell width="25%" sx={{ fontWeight: 'bold' }}>Title</TableCell>
+                    <TableCell width="15%" sx={{ fontWeight: 'bold' }}>Created At</TableCell>
+                    <TableCell width="60%" sx={{ fontWeight: 'bold' }}>Content</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                   {stats?.recentEntries.map((entry) => (
-                    <tr key={entry.id}>
-                      <td>{entry.title}</td>
-                      <td>{new Date(entry.created_at).toLocaleDateString()}</td>
-                    </tr>
+                    <Tooltip title="Double click to edit" arrow placement="top">
+                      <TableRow 
+                        key={entry.id}
+                        onDoubleClick={() => handleEntryDoubleClick(entry.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          '&:hover': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
+                        <TableCell>{entry.title}</TableCell>
+                        <TableCell>{new Date(entry.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell sx={{
+                          maxWidth: '600px',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          '&:hover': {
+                            whiteSpace: 'normal',
+                            overflow: 'visible',
+                            backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                          }
+                        }}>
+                          {entry.content}
+                        </TableCell>
+                      </TableRow>
+                    </Tooltip>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </Box>
           </Paper>
         </Grid>
