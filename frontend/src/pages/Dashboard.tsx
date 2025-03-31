@@ -60,9 +60,15 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchDashboardStats = async () => {
       try {
+        console.log('Fetching dashboard stats...');
+        const token = localStorage.getItem('token');
+        console.log('Auth token exists:', !!token);
+        
         const response = await axios.get('/api/v1/analytics/dashboard', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
+        
+        console.log('Dashboard API response:', response.data);
         setStats(response.data);
       } catch (error) {
         console.error('Error fetching dashboard stats:', error);

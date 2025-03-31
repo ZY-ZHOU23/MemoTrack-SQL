@@ -10,6 +10,7 @@ import {
   Alert,
 } from '@mui/material';
 import { useAuth } from '../hooks/useAuth';
+import axios from 'axios';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -20,11 +21,16 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     try {
       await login(email, password);
-      navigate('/');
     } catch (err) {
-      setError('Invalid email or password');
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        setError('Invalid email or password');
+      } else {
+        console.error("Login error:", err);
+        setError('An unexpected error occurred during login. Please try again.');
+      }
     }
   };
 

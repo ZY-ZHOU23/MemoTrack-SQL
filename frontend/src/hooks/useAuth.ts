@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { auth as authService } from '../services/api';
 
 interface User {
   id: number;
@@ -25,19 +26,17 @@ export function useAuth(): AuthContextType {
     const token = localStorage.getItem('token');
     if (token) {
       // Verify token and get user info
-      axios.get('http://localhost:8000/api/v1/users/me', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      .then(response => {
-        setUser(response.data);
-      })
-      .catch(() => {
-        localStorage.removeItem('token');
-        setUser(null);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+      authService.getCurrentUser()
+        .then(response => {
+          setUser(response.data);
+        })
+        .catch(() => {
+          localStorage.removeItem('token');
+          setUser(null);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     } else {
       setLoading(false);
     }
@@ -45,32 +44,27 @@ export function useAuth(): AuthContextType {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await axios.post('http://localhost:8000/api/v1/auth/login', {
-        username: email,
-        password
-      });
+      const response = await authService.login(email, password);
       const { access_token } = response.data;
       localStorage.setItem('token', access_token);
-      setUser(response.data.user);
+      const userData: User = response.data.user;
+      setUser(userData);
       navigate('/');
     } catch (error) {
-      throw new Error('Login failed');
+      throw error;
     }
   };
 
   const register = async (email: string, username: string, password: string) => {
     try {
-      const response = await axios.post('http://localhost:8000/api/v1/auth/register', {
-        email,
-        username,
-        password
-      });
+      const response = await authService.register(email, username, password);
       const { access_token } = response.data;
       localStorage.setItem('token', access_token);
-      setUser(response.data.user);
+      const userData: User = response.data.user;
+      setUser(userData);
       navigate('/');
     } catch (error) {
-      throw new Error('Registration failed');
+      throw error;
     }
   };
 

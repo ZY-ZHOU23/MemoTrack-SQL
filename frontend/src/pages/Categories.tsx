@@ -19,7 +19,7 @@ import {
   TableRow,
 } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
-import axios from 'axios';
+import { categories as categoriesService } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 
 interface Category {
@@ -46,9 +46,7 @@ export default function Categories() {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get('/api/v1/categories', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
+      const response = await categoriesService.getAll();
       setCategories(response.data);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -79,19 +77,14 @@ export default function Categories() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("handleSubmit called");
     try {
       if (editingCategory) {
-        await axios.put(
-          `/api/v1/categories/${editingCategory.id}`,
-          formData,
-          {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-          }
-        );
+        console.log("Attempting to update category:", editingCategory.id, formData);
+        await categoriesService.update(editingCategory.id, formData);
       } else {
-        await axios.post('/api/v1/categories', formData, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        });
+        console.log("Attempting to create category:", formData);
+        await categoriesService.create(formData);
       }
       fetchCategories();
       handleClose();
@@ -103,9 +96,7 @@ export default function Categories() {
   const handleDelete = async (id: number) => {
     if (window.confirm('Are you sure you want to delete this category?')) {
       try {
-        await axios.delete(`/api/v1/categories/${id}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        });
+        await categoriesService.delete(id);
         fetchCategories();
       } catch (error) {
         console.error('Error deleting category:', error);
@@ -123,7 +114,10 @@ export default function Categories() {
           variant="contained"
           color="primary"
           startIcon={<AddIcon />}
-          onClick={() => handleOpen()}
+          onClick={() => {
+            console.log('New Category button clicked');
+            handleOpen();
+          }}
         >
           New Category
         </Button>
@@ -197,7 +191,12 @@ export default function Categories() {
           </DialogContent>
           <DialogActions>
             <Button onClick={handleClose}>Cancel</Button>
-            <Button type="submit" variant="contained" color="primary">
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              onClick={() => console.log('Create/Update button clicked')}
+            >
               {editingCategory ? 'Update' : 'Create'}
             </Button>
           </DialogActions>

@@ -20,11 +20,20 @@ api.interceptors.request.use((config) => {
 
 // Auth endpoints
 export const auth = {
-  login: (email: string, password: string) =>
-    api.post('/api/v1/auth/login', { email, password }),
-  register: (email: string, password: string) =>
-    api.post('/api/v1/auth/register', { email, password }),
-  getCurrentUser: () => api.get('/api/v1/auth/me'),
+  login: (email: string, password: string) => {
+    const formData = new URLSearchParams();
+    formData.append('username', email);
+    formData.append('password', password);
+    
+    return api.post('/api/v1/auth/login', formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+  },
+  register: (email: string, username: string, password: string) =>
+    api.post('/api/v1/auth/register', { email, username, password }),
+  getCurrentUser: () => api.get('/api/v1/users/me'),
 };
 
 // Entries endpoints
@@ -34,14 +43,18 @@ export const entries = {
   create: (data: {
     title: string;
     content: string;
-    category: string;
-    tags: string[];
+    category_id: number;
+    priority?: string;
+    status?: string;
+    tags?: string[];
   }) => api.post('/api/v1/entries', data),
   update: (id: number, data: {
-    title: string;
-    content: string;
-    category: string;
-    tags: string[];
+    title?: string;
+    content?: string;
+    category_id?: number;
+    priority?: string;
+    status?: string;
+    tags?: string[];
   }) => api.put(`/api/v1/entries/${id}`, data),
   delete: (id: number) => api.delete(`/api/v1/entries/${id}`),
 };

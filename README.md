@@ -6,20 +6,25 @@ A full-stack application for managing personal memos, tracking metrics, and orga
 
 ```
 personal-memo-system/
-├── backend/                    # Backend API server
-│   ├── __init__.py
-│   ├── main.py                # Main FastAPI application entry point
-│   ├── database.py            # Database configuration and connection setup
-│   ├── auth.py                # Authentication and authorization logic
-│   ├── models.py              # SQLAlchemy database models
-│   ├── schemas.py             # Pydantic data validation schemas
-│   └── routers/               # API route handlers
-│       ├── __init__.py
-│       ├── categories.py      # Category management endpoints
-│       ├── entries.py         # Entry management endpoints
-│       ├── metrics.py         # Metric tracking endpoints
-│       ├── tags.py            # Tag management endpoints
-│       └── analytics.py       # Analytics and statistics endpoints
+├── backend/                    # Main FastAPI application
+│   ├── api/                   # API endpoints
+│   │   └── api_v1/           # API version 1
+│   │       ├── api.py        # Main API router
+│   │       └── endpoints/    # Individual endpoint modules
+│   ├── core/                 # Core configurations
+│   ├── db/                   # Database configurations
+│   ├── models/               # Database models
+│   │   ├── base.py          # Base model class
+│   │   ├── user.py          # User model
+│   │   ├── category.py      # Category model
+│   │   ├── entry.py         # Entry model
+│   │   ├── metric.py        # Metric model
+│   │   ├── tag.py           # Tag model
+│   │   └── audit.py         # Audit logging model
+│   ├── schemas/             # Pydantic schemas
+│   ├── services/            # Business logic
+│   ├── utils/               # Utility functions
+│   └── main.py              # Application entry point
 │
 ├── frontend/                  # Frontend React application
 │   ├── public/               # Static files

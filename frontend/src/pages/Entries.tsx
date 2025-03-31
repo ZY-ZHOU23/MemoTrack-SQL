@@ -18,9 +18,10 @@ import {
   TableHead,
   TableRow,
   Chip,
+  MenuItem,
 } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
-import axios from 'axios';
+import { entries as entriesService, categories as categoriesService, tags as tagsService } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 
 interface Entry {
@@ -28,6 +29,9 @@ interface Entry {
   title: string;
   content: string;
   category: string;
+  category_id: number;
+  priority: string;
+  status: string;
   tags: string[];
   created_at: string;
   updated_at: string;
@@ -52,7 +56,9 @@ export default function Entries() {
   const [formData, setFormData] = useState({
     title: '',
     content: '',
-    category: '',
+    category_id: 0,
+    priority: 'medium',
+    status: 'published',
     tags: [] as string[],
   });
   const { user } = useAuth();
@@ -65,9 +71,8 @@ export default function Entries() {
 
   const fetchEntries = async () => {
     try {
-      const response = await axios.get('/api/v1/entries', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
+      const response = await entriesService.getAll();
+      console.log('Entries fetched:', response.data);
       setEntries(response.data);
     } catch (error) {
       console.error('Error fetching entries:', error);
@@ -76,9 +81,8 @@ export default function Entries() {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get('/api/v1/categories', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
+      const response = await categoriesService.getAll();
+      console.log('Categories fetched:', response.data);
       setCategories(response.data);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -87,22 +91,33 @@ export default function Entries() {
 
   const fetchTags = async () => {
     try {
-      const response = await axios.get('/api/v1/tags', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
+      const response = await tagsService.getAll();
       setTags(response.data);
     } catch (error) {
       console.error('Error fetching tags:', error);
     }
   };
 
+  const getCategoryName = (categoryId: number) => {
+    const category = categories.find(cat => cat.id === categoryId);
+    return category ? category.name : '';
+  };
+
   const handleOpen = (entry?: Entry) => {
+    fetchCategories();
+    fetchTags();
+    
     if (entry) {
       setEditingEntry(entry);
+      const categoryObj = categories.find(cat => cat.name === entry.category);
+      const category_id = categoryObj ? categoryObj.id : 0;
+      
       setFormData({
         title: entry.title,
         content: entry.content,
-        category: entry.category,
+        category_id: category_id,
+        priority: 'medium',
+        status: 'published',
         tags: entry.tags,
       });
     } else {
@@ -110,7 +125,9 @@ export default function Entries() {
       setFormData({
         title: '',
         content: '',
-        category: '',
+        category_id: 0,
+        priority: 'medium',
+        status: 'published',
         tags: [],
       });
     }
@@ -125,18 +142,18 @@ export default function Entries() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Ensure tags are properly formatted
+      const formattedData = {
+        ...formData,
+        tags: formData.tags.filter(tag => tag.trim() !== '') // Remove empty tags
+      };
+      
+      console.log('Sending data to backend:', formattedData);
+      
       if (editingEntry) {
-        await axios.put(
-          `/api/v1/entries/${editingEntry.id}`,
-          formData,
-          {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-          }
-        );
+        await entriesService.update(editingEntry.id, formattedData);
       } else {
-        await axios.post('/api/v1/entries', formData, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        });
+        await entriesService.create(formattedData);
       }
       fetchEntries();
       handleClose();
@@ -148,9 +165,7 @@ export default function Entries() {
   const handleDelete = async (id: number) => {
     if (window.confirm('Are you sure you want to delete this entry?')) {
       try {
-        await axios.delete(`/api/v1/entries/${id}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        });
+        await entriesService.delete(id);
         fetchEntries();
       } catch (error) {
         console.error('Error deleting entry:', error);
@@ -186,39 +201,49 @@ export default function Entries() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {entries.map((entry) => (
-              <TableRow key={entry.id}>
-                <TableCell>{entry.title}</TableCell>
-                <TableCell>{entry.category}</TableCell>
-                <TableCell>
-                  {entry.tags.map((tag) => (
-                    <Chip
-                      key={tag}
-                      label={tag}
-                      size="small"
-                      sx={{ mr: 0.5, mb: 0.5 }}
-                    />
-                  ))}
-                </TableCell>
-                <TableCell>
-                  {new Date(entry.created_at).toLocaleDateString()}
-                </TableCell>
-                <TableCell>
-                  <IconButton
-                    color="primary"
-                    onClick={() => handleOpen(entry)}
-                  >
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton
-                    color="error"
-                    onClick={() => handleDelete(entry.id)}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </TableCell>
+            {entries && entries.length > 0 ? (
+              entries.map((entry) => (
+                <TableRow key={entry.id}>
+                  <TableCell>{entry.title}</TableCell>
+                  <TableCell>
+                    {entry.category || getCategoryName(entry.category_id) || ''}
+                  </TableCell>
+                  <TableCell>
+                    {entry.tags && Array.isArray(entry.tags) && entry.tags.length > 0 ? (
+                      entry.tags.map((tag) => (
+                        <Chip
+                          key={tag}
+                          label={tag}
+                          size="small"
+                          sx={{ mr: 0.5, mb: 0.5 }}
+                        />
+                      ))
+                    ) : null}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(entry.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <IconButton
+                      color="primary"
+                      onClick={() => handleOpen(entry)}
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      color="error"
+                      onClick={() => handleDelete(entry.id)}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={5}>No entries found</TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
       </TableContainer>
@@ -255,22 +280,26 @@ export default function Entries() {
               margin="dense"
               label="Category"
               fullWidth
-              value={formData.category}
+              value={formData.category_id}
               onChange={(e) =>
-                setFormData({ ...formData, category: e.target.value })
+                setFormData({ ...formData, category_id: Number(e.target.value) })
               }
             >
-              {categories.map((category) => (
-                <option key={category.id} value={category.name}>
-                  {category.name}
-                </option>
-              ))}
+              {categories && categories.length > 0 ? (
+                categories.map((category) => (
+                  <MenuItem key={category.id} value={category.id}>
+                    {category.name}
+                  </MenuItem>
+                ))
+              ) : (
+                <MenuItem value={0}>No categories available</MenuItem>
+              )}
             </TextField>
             <TextField
               margin="dense"
               label="Tags (comma-separated)"
               fullWidth
-              value={formData.tags.join(', ')}
+              value={(formData.tags && Array.isArray(formData.tags)) ? formData.tags.join(', ') : ''}
               onChange={(e) =>
                 setFormData({
                   ...formData,

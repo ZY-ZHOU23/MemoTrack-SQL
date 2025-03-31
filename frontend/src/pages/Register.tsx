@@ -10,9 +10,11 @@ import {
   Alert,
 } from '@mui/material';
 import { useAuth } from '../hooks/useAuth';
+import axios from 'axios';
 
 export default function Register() {
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -21,15 +23,24 @@ export default function Register() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
     try {
-      await register(email, password);
-      navigate('/');
+      await register(email, username, password);
     } catch (err) {
-      setError('Registration failed. Please try again.');
+      if (axios.isAxiosError(err) && err.response?.status === 400) {
+        if (err.response?.data?.detail?.includes('email already exists')) {
+          setError('An account with this email already exists.');
+        } else {
+          setError('Registration failed. Please check your input.');
+        }
+      } else {
+        console.error("Registration error:", err);
+        setError('An unexpected error occurred during registration. Please try again.');
+      }
     }
   };
 
@@ -63,6 +74,17 @@ export default function Register() {
             autoFocus
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+          />
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="username"
+            label="Username"
+            name="username"
+            autoComplete="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
           />
           <TextField
             margin="normal"

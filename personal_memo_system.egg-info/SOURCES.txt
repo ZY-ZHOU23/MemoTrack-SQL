@@ -1,0 +1,8 @@
+LICENSE
+README.md
+setup.py
+personal_memo_system.egg-info/PKG-INFO
+personal_memo_system.egg-info/SOURCES.txt
+personal_memo_system.egg-info/dependency_links.txt
+personal_memo_system.egg-info/requires.txt
+personal_memo_system.egg-info/top_level.txt
