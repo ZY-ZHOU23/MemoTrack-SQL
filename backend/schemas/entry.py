@@ -9,7 +9,6 @@ class EntryBase(BaseSchema):
     content: str
     priority: str = "medium"
     status: str = "published"
-    category_id: Optional[int] = None
     created_at: Optional[datetime] = None
 
 class EntryCreate(EntryBase):
@@ -21,7 +20,6 @@ class EntryUpdate(EntryBase):
     content: Optional[str] = None
     priority: Optional[str] = None
     status: Optional[str] = None
-    category_id: Optional[int] = None
     tags: Optional[List[str]] = None
     created_at: Optional[datetime] = None
     metrics: Optional[List[dict]] = None
@@ -34,6 +32,5 @@ class Entry(EntryInDBBase):
     pass
 
 class EntryResponse(EntryInDBBase):
-    category: Optional[str] = None
     tags: List[str] = []
     metrics: Optional[List[MetricResponse]] = None 

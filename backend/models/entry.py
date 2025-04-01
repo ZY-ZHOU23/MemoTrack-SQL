@@ -1,7 +1,7 @@
 """
 Entry model for storing personal memos in the Personal Memo System.
 Defines the database schema for entries and their relationships with
-categories, tags, and metrics.
+tags, and metrics.
 """
 
 from sqlalchemy import Column, Integer, String, Text, Enum, ForeignKey
@@ -18,7 +18,6 @@ class Entry(Base, TimestampMixin):
     # Primary key and basic entry information
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    category_id = Column(Integer, ForeignKey("categories.id", ondelete="CASCADE"), nullable=True)
     title = Column(String(255), nullable=False)
     content = Column(Text, nullable=False)
     
@@ -28,6 +27,5 @@ class Entry(Base, TimestampMixin):
 
     # Relationships with other entities
     user = relationship("User", back_populates="entries")
-    category = relationship("Category", back_populates="entries")
     metrics = relationship("Metric", back_populates="entry", cascade="all, delete-orphan")
     tags = relationship("Tag", secondary="entry_tags", back_populates="entries") 

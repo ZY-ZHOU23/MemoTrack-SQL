@@ -173,13 +173,16 @@ def get_dashboard_stats(
             desc(Entry.created_at)
         ).limit(5).all()
         
-        # Get entries by category
+        # Get entries by category (using metrics)
         entries_by_category = db.query(
             Category.name.label('category'),
-            func.count(Entry.id).label('count')
+            func.count(Metric.id).label('count')
+        ).join(
+            Metric,
+            Metric.category_id == Category.id
         ).join(
             Entry,
-            Entry.category_id == Category.id
+            Entry.id == Metric.entry_id
         ).filter(
             Entry.user_id == current_user.id
         ).group_by(
@@ -268,7 +271,9 @@ def get_analytics(
         
         # Get total categories used in this time range
         total_categories = db.query(func.count(func.distinct(Category.id))).join(
-            Entry, Entry.category_id == Category.id
+            Metric, Metric.category_id == Category.id
+        ).join(
+            Entry, Entry.id == Metric.entry_id
         ).filter(
             Entry.user_id == current_user.id,
             Entry.created_at >= start_date if time_range != "all" else True
@@ -306,9 +311,11 @@ def get_analytics(
         # Find most used category
         most_used_category_query = db.query(
             Category.name,
-            func.count(Entry.id).label('count')
+            func.count(Metric.id).label('count')
         ).join(
-            Entry, Entry.category_id == Category.id
+            Metric, Metric.category_id == Category.id
+        ).join(
+            Entry, Entry.id == Metric.entry_id
         ).filter(
             Entry.user_id == current_user.id,
             Entry.created_at >= start_date if time_range != "all" else True
@@ -339,18 +346,36 @@ def get_analytics(
         
         most_used_tag = most_used_tag_query.name if most_used_tag_query else 'N/A'
         
-        # Get entries by category
-        entries_by_category = db.query(
+        # Get entries by category stats for distribution
+        category_distribution = []
+        
+        # Use metrics to determine category distribution
+        category_metrics = db.query(
             Category.name.label('category'),
-            func.count(Entry.id).label('count')
+            func.count(Metric.id).label('count')
         ).join(
-            Entry, Entry.category_id == Category.id
+            Metric, Metric.category_id == Category.id
+        ).join(
+            Entry, Entry.id == Metric.entry_id
         ).filter(
             Entry.user_id == current_user.id,
             Entry.created_at >= start_date if time_range != "all" else True
         ).group_by(
             Category.name
         ).all()
+        
+        total_metrics = sum([r.count for r in category_metrics]) if category_metrics else 0
+        
+        for r in category_metrics:
+            percentage = (r.count / total_metrics * 100) if total_metrics > 0 else 0
+            category_distribution.append({
+                "category": r.category,
+                "count": r.count,
+                "percentage": round(percentage, 1)
+            })
+        
+        # Sort by percentage descending
+        category_distribution.sort(key=lambda x: x["percentage"], reverse=True)
         
         # Get entries by date
         entries_by_date_query = db.query(
@@ -389,13 +414,7 @@ def get_analytics(
             "mostActiveDay": most_active_day,
             "mostUsedCategory": most_used_category,
             "mostUsedTag": most_used_tag,
-            "entriesByCategory": [
-                {
-                    "category": r.category,
-                    "count": r.count
-                }
-                for r in entries_by_category
-            ],
+            "entriesByCategory": category_distribution,
             "entriesByDate": [
                 {
                     "date": r.date.isoformat(),
@@ -417,4 +436,156 @@ def get_analytics(
         
     except Exception as e:
         print(f"Error in analytics endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@router.get("/metrics/by-category", response_model=dict)
+def get_metrics_by_category(
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Get metrics aggregated by category and metric name.
+    Returns data suitable for visualization.
+    """
+    try:
+        # Get metrics grouped by category and metric_name
+        metrics_data = db.query(
+            Category.name.label('category'),
+            Metric.metric_name,
+            func.avg(Metric.value).label('avg_value'),
+            func.min(Metric.value).label('min_value'),
+            func.max(Metric.value).label('max_value'),
+            func.count(Metric.id).label('count')
+        ).join(
+            Entry, Entry.id == Metric.entry_id
+        ).join(
+            Category, Category.id == Metric.category_id
+        ).filter(
+            Entry.user_id == current_user.id
+        ).group_by(
+            Category.name, Metric.metric_name
+        ).all()
+        
+        # Get all metrics to extract units
+        all_metrics = db.query(
+            Category.name.label('category'),
+            Metric.metric_name,
+            Metric.unit
+        ).join(
+            Entry, Entry.id == Metric.entry_id
+        ).join(
+            Category, Category.id == Metric.category_id
+        ).filter(
+            Entry.user_id == current_user.id
+        ).all()
+        
+        # Create a dictionary to store units for each category and metric name
+        units_dict = {}
+        for metric in all_metrics:
+            key = f"{metric.category}:{metric.metric_name}"
+            if key not in units_dict:
+                units_dict[key] = []
+            if metric.unit:
+                units_dict[key].append(metric.unit)
+        
+        # Organize data by category for visualization
+        categories = {}
+        for metric in metrics_data:
+            if metric.category not in categories:
+                categories[metric.category] = []
+            
+            # Get the most common unit
+            key = f"{metric.category}:{metric.metric_name}"
+            units = units_dict.get(key, [])
+            most_common_unit = ''
+            if units:
+                # Find the most common unit
+                unit_count = {}
+                for unit in units:
+                    unit_count[unit] = unit_count.get(unit, 0) + 1
+                most_common_unit = max(unit_count.keys(), key=lambda k: unit_count[k])
+            
+            categories[metric.category].append({
+                'metric_name': metric.metric_name,
+                'avg_value': float(metric.avg_value),
+                'min_value': float(metric.min_value),
+                'max_value': float(metric.max_value),
+                'count': metric.count,
+                'unit': most_common_unit
+            })
+        
+        # Format for response
+        result = []
+        for category, metrics in categories.items():
+            result.append({
+                'category': category,
+                'metrics': metrics
+            })
+        
+        return {
+            'metrics_by_category': result
+        }
+    except Exception as e:
+        print(f"Error in metrics by category endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@router.get("/metrics/values", response_model=dict)
+def get_metric_values(
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+    category: str = None,
+    metric_name: str = None,
+) -> Any:
+    """
+    Get individual metric values for each category/metric name.
+    Returns data suitable for detailed visualization of actual values.
+    """
+    try:
+        # Base query to get all metrics with their values
+        query = db.query(
+            Metric.id,
+            Category.name.label('category'),
+            Metric.metric_name,
+            Metric.value,
+            Metric.unit,
+            Metric.created_at
+        ).join(
+            Entry, Entry.id == Metric.entry_id
+        ).join(
+            Category, Category.id == Metric.category_id
+        ).filter(
+            Entry.user_id == current_user.id
+        ).order_by(
+            Category.name, Metric.metric_name, Metric.created_at
+        )
+        
+        # Apply filters if provided
+        if category:
+            query = query.filter(Category.name == category)
+        if metric_name:
+            query = query.filter(Metric.metric_name == metric_name)
+        
+        metrics = query.all()
+        
+        # Organize data by category and metric_name
+        result = {}
+        for metric in metrics:
+            if metric.category not in result:
+                result[metric.category] = {}
+            
+            if metric.metric_name not in result[metric.category]:
+                result[metric.category][metric.metric_name] = []
+            
+            result[metric.category][metric.metric_name].append({
+                'id': metric.id,
+                'value': float(metric.value),
+                'unit': metric.unit,
+                'created_at': metric.created_at.isoformat()
+            })
+        
+        return {
+            'metric_values': result
+        }
+    except Exception as e:
+        print(f"Error in metric values endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}") 

@@ -1,5 +1,5 @@
 """
-Category model for organizing entries in the Personal Memo System.
+Category model for organizing metrics in the Personal Memo System.
 Defines the database schema for categories and their hierarchical relationships.
 """
 
@@ -9,7 +9,7 @@ from .base import Base, TimestampMixin
 
 class Category(Base, TimestampMixin):
     """
-    Category model for organizing entries.
+    Category model for organizing metrics.
     Supports hierarchical categories and user-specific organization.
     """
     __tablename__ = "categories"
@@ -26,5 +26,4 @@ class Category(Base, TimestampMixin):
 
     # Relationships with other entities
     user = relationship("User", back_populates="categories")
-    parent = relationship("Category", remote_side=[id], backref="children")
-    entries = relationship("Entry", back_populates="category", cascade="all, delete-orphan") 
+    parent = relationship("Category", remote_side=[id], backref="children") 

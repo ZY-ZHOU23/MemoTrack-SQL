@@ -7,6 +7,7 @@ from backend.models.entry import Entry
 from backend.models.metric import Metric
 from backend.models.user import User
 from backend.models.tag import Tag
+from backend.models.category import Category
 from backend.schemas.entry import EntryCreate, EntryUpdate, EntryResponse
 from backend.schemas.metric import MetricCreate
 
@@ -18,17 +19,14 @@ def read_entries(
     current_user: User = Depends(deps.get_current_active_user),
     skip: int = 0,
     limit: int = 100,
-    category_id: int = None,
 ) -> Any:
     """
     Retrieve entries.
     """
     query = db.query(Entry).filter(Entry.user_id == current_user.id)
-    if category_id:
-        query = query.filter(Entry.category_id == category_id)
     entries = query.offset(skip).limit(limit).all()
     
-    # Add category names and tag lists to the response
+    # Add tag lists to the response
     result = []
     for entry in entries:
         entry_dict = {
@@ -36,21 +34,20 @@ def read_entries(
             "user_id": entry.user_id,
             "title": entry.title,
             "content": entry.content,
-            "category_id": entry.category_id,
             "priority": entry.priority,
             "status": entry.status,
             "created_at": entry.created_at,
             "updated_at": entry.updated_at,
-            "category": entry.category.name if entry.category else None,
             "tags": [tag.name for tag in entry.tags] if entry.tags else [],
             "metrics": [
                 {
                     "id": metric.id,
-                    "category": metric.category,
                     "metric_name": metric.metric_name,
                     "value": float(metric.value),
                     "unit": metric.unit,
                     "entry_id": metric.entry_id,
+                    "category_id": metric.category_id,
+                    "category_name": metric.category.name if metric.category else None,
                     "created_at": metric.created_at,
                     "updated_at": metric.updated_at
                 } for metric in entry.metrics
@@ -119,9 +116,32 @@ def create_entry(
     # Process metrics
     if metrics_data:
         for metric_data in metrics_data:
-            # Skip metrics with empty category or metric_name
-            if not metric_data.get("category") or not metric_data.get("metric_name"):
+            # Skip metrics with empty metric_name
+            if not metric_data.get("metric_name"):
                 continue
+            
+            # Handle old 'category' field if present
+            if "category" in metric_data and isinstance(metric_data["category"], str):
+                # Look up category by name or create a new one
+                category_name = metric_data.pop("category")
+                if category_name:
+                    category = db.query(Category).filter(
+                        Category.name == category_name,
+                        Category.user_id == current_user.id
+                    ).first()
+                    
+                    if category:
+                        metric_data["category_id"] = category.id
+                    else:
+                        # Create new category if needed
+                        new_category = Category(
+                            name=category_name,
+                            user_id=current_user.id
+                        )
+                        db.add(new_category)
+                        db.commit()
+                        db.refresh(new_category)
+                        metric_data["category_id"] = new_category.id
             
             # Add entry_id to metric data
             metric_data["entry_id"] = entry.id
@@ -133,27 +153,26 @@ def create_entry(
         db.commit()
         db.refresh(entry)
     
-    # Include category name and tags in response
+    # Prepare response
     response = {
         "id": entry.id,
         "user_id": entry.user_id,
         "title": entry.title,
         "content": entry.content,
-        "category_id": entry.category_id,
         "priority": entry.priority,
         "status": entry.status,
         "created_at": entry.created_at,
         "updated_at": entry.updated_at,
-        "category": entry.category.name if entry.category else None,
         "tags": [tag.name for tag in entry.tags] if entry.tags else [],
         "metrics": [
             {
                 "id": metric.id,
-                "category": metric.category,
                 "metric_name": metric.metric_name,
                 "value": float(metric.value),
                 "unit": metric.unit,
                 "entry_id": metric.entry_id,
+                "category_id": metric.category_id,
+                "category_name": metric.category.name if metric.category else None,
                 "created_at": metric.created_at,
                 "updated_at": metric.updated_at
             } for metric in entry.metrics
@@ -229,9 +248,32 @@ def update_entry(
         
         # Create new metrics
         for metric_data in metrics_data:
-            # Skip metrics with empty category or metric_name
-            if not metric_data.get("category") or not metric_data.get("metric_name"):
+            # Skip metrics with empty metric_name
+            if not metric_data.get("metric_name"):
                 continue
+            
+            # Handle old 'category' field if present
+            if "category" in metric_data and isinstance(metric_data["category"], str):
+                # Look up category by name or create a new one
+                category_name = metric_data.pop("category")
+                if category_name:
+                    category = db.query(Category).filter(
+                        Category.name == category_name,
+                        Category.user_id == current_user.id
+                    ).first()
+                    
+                    if category:
+                        metric_data["category_id"] = category.id
+                    else:
+                        # Create new category if needed
+                        new_category = Category(
+                            name=category_name,
+                            user_id=current_user.id
+                        )
+                        db.add(new_category)
+                        db.commit()
+                        db.refresh(new_category)
+                        metric_data["category_id"] = new_category.id
             
             # Add entry_id to metric data
             metric_data["entry_id"] = entry.id
@@ -244,27 +286,26 @@ def update_entry(
     db.commit()
     db.refresh(entry)
     
-    # Include category name and tags in response
+    # Prepare response
     response = {
         "id": entry.id,
         "user_id": entry.user_id,
         "title": entry.title,
         "content": entry.content,
-        "category_id": entry.category_id,
         "priority": entry.priority,
         "status": entry.status,
         "created_at": entry.created_at,
         "updated_at": entry.updated_at,
-        "category": entry.category.name if entry.category else None,
         "tags": [tag.name for tag in entry.tags] if entry.tags else [],
         "metrics": [
             {
                 "id": metric.id,
-                "category": metric.category,
                 "metric_name": metric.metric_name,
                 "value": float(metric.value),
                 "unit": metric.unit,
                 "entry_id": metric.entry_id,
+                "category_id": metric.category_id,
+                "category_name": metric.category.name if metric.category else None,
                 "created_at": metric.created_at,
                 "updated_at": metric.updated_at
             } for metric in entry.metrics
@@ -311,27 +352,26 @@ def read_entry(
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
     
-    # Include category name, tags, and metrics in response
+    # Prepare response
     response = {
         "id": entry.id,
         "user_id": entry.user_id,
         "title": entry.title,
         "content": entry.content,
-        "category_id": entry.category_id,
         "priority": entry.priority,
         "status": entry.status,
         "created_at": entry.created_at,
         "updated_at": entry.updated_at,
-        "category": entry.category.name if entry.category else None,
         "tags": [tag.name for tag in entry.tags] if entry.tags else [],
         "metrics": [
             {
                 "id": metric.id,
-                "category": metric.category,
                 "metric_name": metric.metric_name,
                 "value": float(metric.value),
                 "unit": metric.unit,
                 "entry_id": metric.entry_id,
+                "category_id": metric.category_id,
+                "category_name": metric.category.name if metric.category else None,
                 "created_at": metric.created_at,
                 "updated_at": metric.updated_at
             } for metric in entry.metrics

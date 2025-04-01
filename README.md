@@ -2,6 +2,16 @@
 
 A full-stack application for managing personal memos, tracking metrics, and organizing information with categories and tags.
 
+## Table of Contents
+- [Project Structure](#project-structure)
+- [Features](#features)
+- [Setup Instructions](#setup-instructions)
+- [Usage](#usage)
+- [API Documentation](#api-documentation)
+- [Key Dependencies](#key-dependencies)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Project Structure
 
 ```
@@ -44,96 +54,6 @@ personal-memo-system/
 └── README.md               # Project documentation
 ```
 
-## Backend Structure
-
-### Core Components
-
-1. **main.py**
-   - FastAPI application initialization
-   - CORS configuration
-   - Router registration
-   - Health check endpoint
-
-2. **database.py**
-   - SQLAlchemy database configuration
-   - Database session management
-   - Connection setup
-
-3. **auth.py**
-   - JWT token management
-   - User authentication
-   - Password hashing
-   - User registration and login
-
-4. **models.py**
-   - SQLAlchemy ORM models
-   - Database table definitions
-   - Relationships between models
-   - Includes User, Category, Entry, Metric, and Tag models
-
-5. **schemas.py**
-   - Pydantic data validation schemas
-   - Request/response models
-   - Data serialization/deserialization
-
-### Routers
-
-1. **categories.py**
-   - CRUD operations for categories
-   - Category listing and filtering
-   - Category ownership management
-
-2. **entries.py**
-   - CRUD operations for entries
-   - Entry categorization
-   - Tag management for entries
-   - Entry ownership management
-
-3. **metrics.py**
-   - CRUD operations for metrics
-   - Progress tracking
-   - Goal management
-   - Metric value updates
-
-4. **tags.py**
-   - CRUD operations for tags
-   - Tag usage statistics
-   - Entry-tag relationships
-   - Tag-based entry filtering
-
-5. **analytics.py**
-   - Entry statistics
-   - Metric progress tracking
-   - Tag usage analysis
-   - Activity timeline
-
-## Frontend Structure
-
-### Core Components
-
-1. **components/**
-   - Reusable UI components
-   - Form components
-   - Layout components
-   - Navigation components
-
-2. **pages/**
-   - Page-level components
-   - Route-specific views
-   - Page layouts
-
-3. **services/**
-   - API integration
-   - Data fetching
-   - State management
-   - Authentication services
-
-4. **utils/**
-   - Helper functions
-   - Constants
-   - Type definitions
-   - Utility hooks
-
 ## Features
 
 - User authentication and authorization
@@ -144,6 +64,12 @@ personal-memo-system/
 - Category-based organization
 - Activity timeline
 - Progress tracking
+- Customizable dashboard with recent entries at the top
+- Advanced metrics visualization:
+  - Summary statistics (average, min, max)
+  - Raw metric values visualization with scatter plots and trend lines
+  - Metrics organized by category and metric name
+  - Time-based analysis of metric values
 
 ## Setup Instructions
 
@@ -157,25 +83,64 @@ personal-memo-system/
    ```bash
    pip install -r requirements.txt
    ```
-4. Install frontend dependencies:
+4. Configure environment variables:
+   - Create a `.env` file in the project root with the following variables:
+     ```
+     DATABASE_URL=mysql://user:password@localhost:3306/personal_memo
+     REDIS_URL=redis://localhost:6379
+     SECRET_KEY=your_secret_key
+     ALGORITHM=HS256
+     ACCESS_TOKEN_EXPIRE_MINUTES=30
+     ```
+5. Apply database migrations:
+   ```bash
+   cd backend
+   alembic upgrade head
+   cd ..
+   ```
+6. Install frontend dependencies:
    ```bash
    cd frontend
    npm install
    ```
-5. Start the backend server:
+7. Start the backend server:
    ```bash
-   cd backend
-   uvicorn main:app --reload
+   uvicorn backend.main:app --reload
    ```
-6. Start the frontend development server:
+8. Start the frontend development server:
    ```bash
    cd frontend
    npm start
    ```
 
+## Usage
+
+- Access the application at `http://localhost:3000` after starting both the backend and frontend servers.
+- Use the dashboard to manage memos, track metrics, and organize information.
+- Explore the analytics section for insights and visualizations.
+
 ## API Documentation
 
 Once the backend server is running, visit `http://localhost:8000/docs` to access the Swagger UI documentation for all API endpoints.
+
+## Key Dependencies
+
+### Backend
+- **FastAPI**: Modern, fast web framework for building APIs
+- **SQLAlchemy**: SQL toolkit and ORM
+- **Alembic**: Database migration tool
+- **Pydantic**: Data validation and settings management
+- **MySQL**: Database storage
+- **Redis**: Caching and performance optimization
+- **JWT**: Authentication mechanism
+
+### Frontend
+- **React**: UI framework
+- **Material-UI**: Component library
+- **Chart.js**: Data visualization
+- **Axios**: HTTP client
+- **React Router**: Navigation
+- **TypeScript**: Static typing
 
 ## Contributing
 

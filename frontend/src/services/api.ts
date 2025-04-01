@@ -153,6 +153,15 @@ export const analytics = {
   getDashboard: () => api.get('/api/v1/analytics/dashboard'),
   getAnalytics: (timeRange: string) =>
     api.get(`/api/v1/analytics?time_range=${timeRange}`),
+  getMetricsByCategory: () => api.get('/api/v1/analytics/metrics/by-category'),
+  getMetricValues: (category?: string, metricName?: string) => {
+    let url = '/api/v1/analytics/metrics/values';
+    const params = [];
+    if (category) params.push(`category=${encodeURIComponent(category)}`);
+    if (metricName) params.push(`metric_name=${encodeURIComponent(metricName)}`);
+    if (params.length > 0) url += `?${params.join('&')}`;
+    return api.get(url);
+  },
 };
 
 export default api; 
