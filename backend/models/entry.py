@@ -18,7 +18,7 @@ class Entry(Base, TimestampMixin):
     # Primary key and basic entry information
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    category_id = Column(Integer, ForeignKey("categories.id", ondelete="CASCADE"), nullable=False)
+    category_id = Column(Integer, ForeignKey("categories.id", ondelete="CASCADE"), nullable=True)
     title = Column(String(255), nullable=False)
     content = Column(Text, nullable=False)
     

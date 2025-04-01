@@ -16,7 +16,7 @@ def read_metrics(
     skip: int = 0,
     limit: int = 100,
     entry_id: int = None,
-    metric_type: str = None,
+    category: str = None,
 ) -> Any:
     """
     Retrieve metrics.
@@ -24,8 +24,8 @@ def read_metrics(
     query = db.query(Metric).join(Entry).filter(Entry.user_id == current_user.id)
     if entry_id:
         query = query.filter(Metric.entry_id == entry_id)
-    if metric_type:
-        query = query.filter(Metric.metric_type == metric_type)
+    if category:
+        query = query.filter(Metric.category == category)
     metrics = query.offset(skip).limit(limit).all()
     return metrics
 

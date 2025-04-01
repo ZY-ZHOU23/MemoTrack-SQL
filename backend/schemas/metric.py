@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from .base import BaseSchema, TimestampSchema
 
 class MetricBase(BaseSchema):
-    metric_type: str
+    category: str
     metric_name: str
     value: float
     unit: Optional[str] = None
@@ -13,7 +13,7 @@ class MetricCreate(MetricBase):
     pass
 
 class MetricUpdate(MetricBase):
-    metric_type: Optional[str] = None
+    category: Optional[str] = None
     metric_name: Optional[str] = None
     value: Optional[float] = None
     unit: Optional[str] = None

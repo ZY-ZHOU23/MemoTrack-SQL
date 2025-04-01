@@ -71,10 +71,17 @@ export const entries = {
   create: (data: {
     title: string;
     content: string;
-    category_id: number;
+    category_id?: number;
     priority?: string;
     status?: string;
     tags?: string[];
+    created_at?: string;
+    metrics?: Array<{
+      category: string;
+      metric_name: string;
+      value: number;
+      unit?: string;
+    }>;
   }) => api.post('/api/v1/entries', data),
   update: (id: number, data: {
     title?: string;
@@ -83,8 +90,41 @@ export const entries = {
     priority?: string;
     status?: string;
     tags?: string[];
+    created_at?: string;
+    metrics?: Array<{
+      category: string;
+      metric_name: string;
+      value: number;
+      unit?: string;
+    }>;
   }) => api.put(`/api/v1/entries/${id}`, data),
   delete: (id: number) => api.delete(`/api/v1/entries/${id}`),
+};
+
+// Metrics endpoints
+export const metrics = {
+  getAll: (entry_id?: number, category?: string) => {
+    let url = '/api/v1/metrics';
+    if (entry_id) url += `?entry_id=${entry_id}`;
+    if (category) url += `${entry_id ? '&' : '?'}category=${category}`;
+    return api.get(url);
+  },
+  getById: (id: number) => api.get(`/api/v1/metrics/${id}`),
+  create: (data: {
+    category: string;
+    metric_name: string;
+    value: number;
+    unit?: string;
+    entry_id: number;
+  }) => api.post('/api/v1/metrics', data),
+  update: (id: number, data: {
+    category?: string;
+    metric_name?: string;
+    value?: number;
+    unit?: string;
+    entry_id?: number;
+  }) => api.put(`/api/v1/metrics/${id}`, data),
+  delete: (id: number) => api.delete(`/api/v1/metrics/${id}`),
 };
 
 // Categories endpoints
