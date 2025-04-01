@@ -13,6 +13,7 @@ import {
   TableRow,
   TableCell,
   Tooltip,
+  TablePagination,
 } from '@mui/material';
 import {
   Chart as ChartJS,
@@ -66,6 +67,10 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
+  
+  // Add pagination state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
 
   useEffect(() => {
     const fetchDashboardStats = async () => {
@@ -97,6 +102,20 @@ export default function Dashboard() {
 
   const handleEntryDoubleClick = (entryId: number) => {
     navigate(`/entries?edit=${entryId}`);
+  };
+
+  const handleChangePage = (
+    event: React.MouseEvent<HTMLButtonElement> | null,
+    newPage: number,
+  ) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
   };
 
   if (loading) {
@@ -143,6 +162,69 @@ export default function Dashboard() {
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Grid container spacing={3}>
+        {/* Recent Entries - Moved to the top */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+            <Typography component="h2" variant="h6" color="primary" gutterBottom>
+              Recent Entries
+            </Typography>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="medium">
+                <TableHead>
+                  <TableRow>
+                    <TableCell width="25%" sx={{ fontWeight: 'bold' }}>Title</TableCell>
+                    <TableCell width="15%" sx={{ fontWeight: 'bold' }}>Created At</TableCell>
+                    <TableCell width="60%" sx={{ fontWeight: 'bold' }}>Content</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {stats?.recentEntries
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((entry) => (
+                    <Tooltip key={entry.id} title="Double click to edit" arrow placement="top">
+                      <TableRow 
+                        onDoubleClick={() => handleEntryDoubleClick(entry.id)}
+                        sx={{
+                          cursor: 'pointer',
+                          '&:hover': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
+                        <TableCell>{entry.title}</TableCell>
+                        <TableCell>{new Date(entry.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell sx={{
+                          maxWidth: '600px',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          '&:hover': {
+                            whiteSpace: 'normal',
+                            overflow: 'visible',
+                            backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                          }
+                        }}>
+                          {entry.content}
+                        </TableCell>
+                      </TableRow>
+                    </Tooltip>
+                  ))}
+                </TableBody>
+              </Table>
+              <TablePagination
+                component="div"
+                count={stats?.recentEntries.length || 0}
+                page={page}
+                onPageChange={handleChangePage}
+                rowsPerPage={rowsPerPage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                rowsPerPageOptions={[5, 10, 25]}
+              />
+            </Box>
+          </Paper>
+        </Grid>
+
         {/* Overview Cards */}
         <Grid item xs={12} md={4}>
           <Paper
@@ -214,59 +296,6 @@ export default function Dashboard() {
             </Typography>
             <Box sx={{ height: 300 }}>
               <Line data={entriesByDateData} />
-            </Box>
-          </Paper>
-        </Grid>
-
-        {/* Recent Entries */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-            <Typography component="h2" variant="h6" color="primary" gutterBottom>
-              Recent Entries
-            </Typography>
-            <Box sx={{ overflowX: 'auto' }}>
-              <Table size="medium">
-                <TableHead>
-                  <TableRow>
-                    <TableCell width="25%" sx={{ fontWeight: 'bold' }}>Title</TableCell>
-                    <TableCell width="15%" sx={{ fontWeight: 'bold' }}>Created At</TableCell>
-                    <TableCell width="60%" sx={{ fontWeight: 'bold' }}>Content</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {stats?.recentEntries.map((entry) => (
-                    <Tooltip title="Double click to edit" arrow placement="top">
-                      <TableRow 
-                        key={entry.id}
-                        onDoubleClick={() => handleEntryDoubleClick(entry.id)}
-                        sx={{
-                          cursor: 'pointer',
-                          '&:hover': {
-                            backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                          },
-                          transition: 'background-color 0.2s ease',
-                        }}
-                      >
-                        <TableCell>{entry.title}</TableCell>
-                        <TableCell>{new Date(entry.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell sx={{
-                          maxWidth: '600px',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          '&:hover': {
-                            whiteSpace: 'normal',
-                            overflow: 'visible',
-                            backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                          }
-                        }}>
-                          {entry.content}
-                        </TableCell>
-                      </TableRow>
-                    </Tooltip>
-                  ))}
-                </TableBody>
-              </Table>
             </Box>
           </Paper>
         </Grid>
